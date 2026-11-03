@@ -19,6 +19,10 @@ const schema = z.object({
   ADMIN_PASSWORD: z.string().min(12),
   RESEND_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().optional().default(''),
+  SMTP_HOST: z.string().optional().default(''),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional().default(''),
+  SMTP_PASS: z.string().optional().default(''),
   GEMINI_API_KEY: z.string().optional().default(''),
   GEMINI_MODEL: z.string().min(1).default('gemini-2.5-flash'),
   CORS_ORIGINS: z.string().optional().default('http://localhost:5173')
@@ -44,10 +48,9 @@ if (isProduction) {
   if (!/^https:\/\//i.test(env.CLIENT_URL) || !/^https:\/\//i.test(env.API_URL)) {
     throw new Error('Production CLIENT_URL and API_URL must use HTTPS.');
   }
-  if (!env.RESEND_API_KEY || !env.EMAIL_FROM || /example\.com/i.test(env.EMAIL_FROM)) {
-    throw new Error('Production requires RESEND_API_KEY and EMAIL_FROM on a verified, non-placeholder sender domain.');
-  }
-  if (/@(?:gmail|googlemail|yahoo|outlook|hotmail)\.[^>\s]+/i.test(env.EMAIL_FROM)) {
-    throw new Error('Production EMAIL_FROM must use a domain verified in Resend, not a consumer mailbox domain.');
+  const hasSmtp = env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS;
+  const hasResend = env.RESEND_API_KEY && env.EMAIL_FROM && !/example\.com/i.test(env.EMAIL_FROM);
+  if (!hasSmtp && !hasResend) {
+    throw new Error('Production requires Gmail SMTP settings or a Resend API key with a verified sender.');
   }
 }

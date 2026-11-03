@@ -1,7 +1,24 @@
 import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
 
 export async function sendEmail({ to, subject, html, text }) {
+  if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
+    const transporter = nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_PORT === 465,
+      auth: { user: env.SMTP_USER, pass: env.SMTP_PASS }
+    });
+    const result = await transporter.sendMail({
+      from: env.EMAIL_FROM || env.SMTP_USER,
+      to,
+      subject,
+      html,
+      text
+    });
+    return { id: result.messageId };
+  }
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
     console.log(`[email:local] to=${to} subject=${subject}\n${text || '(no text body)'}`);
     return { id: `local-${Date.now()}`, local: true };
