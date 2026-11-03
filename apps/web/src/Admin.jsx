@@ -100,7 +100,7 @@ function Posts({ notify, editPost }) {
 }
 
 function PostEditor({ post, close, notify, refresh }) {
-  const initial = post || { title:'',slug:'',excerpt:'',content:'<p></p>',coverImage:'',coverAlt:'',category:'Field notes',tags:[],status:'draft',readTime:5,seo:{title:'',description:''} };
+  const initial = post || { title:'',slug:'',excerpt:'',content:'<p></p>',coverImage:'',coverAlt:'',category:'Field notes',tags:[],status:'draft',scheduledAt:'',readTime:5,seo:{title:'',description:''} };
   const [form,setForm] = useState(initial);
   const [saving,setSaving] = useState(false);
   const [tab,setTab] = useState('content');
@@ -140,6 +140,7 @@ function PostEditor({ post, close, notify, refresh }) {
       <label>SEO title<input value={form.seo?.title||''} onChange={e=>update('seo',{...form.seo,title:e.target.value})} maxLength={180}/></label>
       <label>SEO description<textarea rows="3" value={form.seo?.description||''} onChange={e=>update('seo',{...form.seo,description:e.target.value})} maxLength={300}/></label>
       <label className="editor-checkbox"><input type="checkbox" checked={form.status==='published'} onChange={e=>update('status',e.target.checked?'published':'draft')}/> Published</label>
+      <label>Schedule publication<input type="datetime-local" value={form.scheduledAt ? String(form.scheduledAt).slice(0, 16) : ''} onChange={e=>update('scheduledAt', e.target.value || null)} /><small>Leave empty to publish immediately or keep as a draft.</small></label>
     </div>}
     </div><div className="post-editor-bottom"><button className="button button-quiet" onClick={close}>Cancel</button><div><button className="button button-quiet" disabled={saving} onClick={()=>save('draft')}><Save size={15}/> Save draft</button><button className="button button-dark" disabled={saving} onClick={()=>save('published')}>{saving?'Saving…':'Publish'} <ArrowLeft className="publish-arrow" size={15}/></button></div></div>
   </div></div>;
@@ -221,7 +222,7 @@ export default function Admin() {
   if(checking)return <div className="admin-loading full-page">Preparing secure workspace…</div>;
   if(!user)return <Login onLogin={login}/>;
   return <div className="admin-shell">
-    <aside className={`admin-sidebar ${mobileNav?'mobile-open':''}`}><Link to="/" className="admin-brand"><span className="brand-mark">fn.</span><span>Field Notes<small>ADMIN STUDIO</small></span></Link><div className="admin-side-label">WORKSPACE</div><nav>{navItems.map(([key,label,Icon])=><button key={key} className={section===key?'active':''} onClick={()=>go(key)}><Icon size={17}/><span>{label}</span>{key==='comments'&&dashboard?.stats?.pendingComments>0&&<i>{dashboard.stats.pendingComments}</i>}</button>)}</nav><div className="admin-sidebar-bottom"><div className="admin-user"><div className="admin-avatar">{user.email?.slice(0,1).toUpperCase()}</div><span><b>{user.email}</b><small>Administrator</small></span></div><button onClick={logout}><LogOut size={16}/> Sign out</button></div></aside>
+    <aside className={`admin-sidebar ${mobileNav?'mobile-open':''}`}><Link to="/" className="admin-brand"><span className="brand-mark">fn.</span><span>Developer Blog<small>ADMIN STUDIO</small></span></Link><div className="admin-side-label">WORKSPACE</div><nav>{navItems.map(([key,label,Icon])=><button key={key} className={section===key?'active':''} onClick={()=>go(key)}><Icon size={17}/><span>{label}</span>{key==='comments'&&dashboard?.stats?.pendingComments>0&&<i>{dashboard.stats.pendingComments}</i>}</button>)}</nav><div className="admin-sidebar-bottom"><div className="admin-user"><div className="admin-avatar">{user.email?.slice(0,1).toUpperCase()}</div><span><b>{user.email}</b><small>Administrator</small></span></div><button onClick={logout}><LogOut size={16}/> Sign out</button></div></aside>
     <div className="admin-main"><header className="admin-topbar"><button className="admin-mobile-toggle" onClick={()=>setMobileNav(!mobileNav)}><ChevronDown size={18}/></button><div><span className="eyebrow">FIELD NOTES / {title.toUpperCase()}</span></div><div className="admin-top-actions"><a href="/" target="_blank" rel="noreferrer"><ExternalLink size={15}/> View site</a><button className="icon-button" onClick={toggleTheme} aria-label="Toggle theme">{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button></div></header><Notice notice={notice} clear={()=>setNotice(null)}/>
       {section==='overview'&&<Overview data={dashboard} go={go}/>}
       {section==='posts'&&<Posts key={refreshKey} notify={notify} editPost={setEditingPost}/>}

@@ -35,6 +35,7 @@ const QUEUE_NAME = 'newsletter';
 const MAX_ERROR_LENGTH = 500;
 
 let worker;
+let scheduler;
 let shuttingDown = false;
 
 async function processNewsletterJob(job) {
@@ -291,6 +292,15 @@ async function startWorker() {
       concurrency: 2
     }
   );
+  scheduler = setInterval(async () => {
+    const due = await Post.find({ status: 'draft', scheduledAt: { $lte: new Date() } }).limit(20);
+    for (const post of due) {
+      post.status = 'published';
+      post.publishedAt = new Date();
+      await post.save();
+      console.log(`Scheduled post published: ${post.slug}`);
+    }
+  }, 30000);
 
   worker.on('completed', (job) => {
     console.log(`Newsletter job completed: ${job.id}`);
@@ -338,6 +348,7 @@ async function shutdown(signal) {
     if (worker) {
       await worker.close();
     }
+    if (scheduler) clearInterval(scheduler);
 
     await disconnectDatabase();
 

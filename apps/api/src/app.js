@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import session from 'express-session';
@@ -11,10 +12,10 @@ import fs from 'node:fs';
 import multer from 'multer';
 import sanitizeHtml from 'sanitize-html';
 import { env, isProduction } from './config/env.js';
-import { User, Post, Comment, Like, Subscriber, Page, SiteSettings, NewsletterCampaign, NewsletterDelivery, ContactMessage, AuditLog, Media } from './models/index.js';
+import { User, Post, Comment, Like, Subscriber, Page, SiteSettings, NewsletterCampaign, NewsletterDelivery, ContactMessage, AuditLog, Media, PostRevision } from './models/index.js';
 import { requireAdmin } from './middleware/auth.js';
 import { validate } from './middleware/validate.js';
-import { loginSchema, postSchema, commentSchema, subscribeSchema, contactSchema, pageSchema, settingsSchema } from './schemas.js';
+import { loginSchema, postSchema, commentSchema, subscribeSchema, contactSchema, pageSchema, settingsSchema, assistantSchema } from './schemas.js';
 import { createOpaqueToken, hashToken, visitorHash, unsubscribeTokenForEmail } from './services/tokens.js';
 import { sendEmail, escapeHtml } from './services/email.js';
 import { newsletterQueue } from './services/queue.js';
@@ -85,6 +86,7 @@ function sanitizeContent(content) {
   });
 }
 async function queuePublication(post) {
+  if (!env.NEWSLETTER_QUEUE_ENABLED) return null;
   const key = `post:${post._id}:publication:${post.publishedAt?.toISOString() || post.updatedAt.toISOString()}`;
   let campaign;
   try {
@@ -137,7 +139,11 @@ async function seedDefaults() {
     }
   }
 }
-app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/api/health', (req, res) => {
+  const database = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  const status = database === 'connected' ? 'ok' : 'degraded';
+  res.status(status === 'ok' ? 200 : 503).json({ status, database, timestamp: new Date().toISOString() });
+});
 
 app.get('/robots.txt', (req, res) => {
   res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: ${env.API_URL.replace(/\/+$/, '')}/sitemap.xml\n`);
@@ -166,14 +172,15 @@ app.get('/api/pages/:key', async (req, res, next) => {
 app.get('/api/posts', async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 50);
+    const page = Math.max(Number(req.query.page) || 1, 1);
     const filter = { status: 'published', publishedAt: { $lte: new Date() } };
     if (req.query.category) filter.category = String(req.query.category).slice(0, 80);
     if (req.query.q) filter.$text = { $search: String(req.query.q).slice(0, 100) };
     const [items, total] = await Promise.all([
-      Post.find(filter).sort({ publishedAt: -1 }).limit(limit).select('-content').lean(),
+      Post.find(filter).sort({ publishedAt: -1 }).skip((page - 1) * limit).limit(limit).select('-content').lean(),
       Post.countDocuments(filter)
     ]);
-    res.json({ items, total });
+    res.json({ items, total, page, limit, hasMore: page * limit < total });
   } catch (e) { next(e); }
 });
 app.get('/api/posts/:slug', async (req, res, next) => {
@@ -184,7 +191,35 @@ app.get('/api/posts/:slug', async (req, res, next) => {
     const liked = req.cookies?.blog_visitor
       ? Boolean(await Like.exists({ post: post._id, visitorHash: visitorHash(req.cookies.blog_visitor) }))
       : false;
-    res.json({ post, comments, liked });
+    const related = await Post.find({
+      _id: { $ne: post._id },
+      status: 'published',
+      publishedAt: { $lte: new Date() },
+      $or: [{ category: post.category }, ...((post.tags || []).length ? [{ tags: { $in: post.tags } }] : [])]
+    }).sort({ publishedAt: -1 }).limit(3).select('-content').lean();
+    res.json({ post, comments, liked, related });
+  } catch (e) { next(e); }
+});
+
+app.post('/api/assistant', writeLimiter, validate(assistantSchema), async (req, res, next) => {
+  try {
+    if (!env.GEMINI_API_KEY) return res.status(503).json({ error: 'The AI assistant is not configured.' });
+    let context = 'You are a concise, helpful assistant for a personal technical blog. Answer using the supplied article context when present.';
+    if (req.body.postSlug) {
+      const post = await Post.findOne({ slug: req.body.postSlug, status: 'published', publishedAt: { $lte: new Date() } }).select('title excerpt content').lean();
+      if (!post) return res.status(404).json({ error: 'Post not found.' });
+      context += `\nArticle title: ${post.title}\nArticle excerpt: ${post.excerpt}\nArticle content:\n${typeof post.content === 'string' ? post.content.slice(0, 12000) : ''}`;
+    }
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: `${context}\n\nUser question: ${req.body.prompt}` }] }] })
+    });
+    const data = await response.json();
+    if (!response.ok) return res.status(502).json({ error: 'The AI assistant could not respond.' });
+    const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
+    if (!text) return res.status(502).json({ error: 'The AI assistant returned an empty response.' });
+    res.json({ answer: text, model: env.GEMINI_MODEL });
   } catch (e) { next(e); }
 });
 app.post('/api/posts/:slug/like', writeLimiter, async (req, res, next) => {
@@ -193,19 +228,18 @@ app.post('/api/posts/:slug/like', writeLimiter, async (req, res, next) => {
     if (!post) return res.status(404).json({ error: 'Post not found.' });
     const visitorId = req.cookies?.blog_visitor || crypto.randomUUID();
     const id = visitorHash(visitorId);
-    const existing = await Like.findOne({ post: post._id, visitorHash: id });
+    const existing = await Like.findOneAndDelete({ post: post._id, visitorHash: id });
     if (existing) {
-      await Like.deleteOne({ _id: existing._id });
-      post.likeCount = Math.max(0, post.likeCount - 1);
-      await post.save();
-      return res.json({ liked: false, likeCount: post.likeCount });
+      const likeCount = await Like.countDocuments({ post: post._id });
+      await Post.updateOne({ _id: post._id }, { $set: { likeCount } });
+      return res.json({ liked: false, likeCount });
     }
     try { await Like.create({ post: post._id, visitorHash: id }); }
     catch (error) { if (error.code !== 11000) throw error; }
-    post.likeCount = await Like.countDocuments({ post: post._id });
-    await post.save();
+    const likeCount = await Like.countDocuments({ post: post._id });
+    await Post.updateOne({ _id: post._id }, { $set: { likeCount } });
     res.cookie('blog_visitor', visitorId, { httpOnly: true, sameSite: 'lax', secure: isProduction, maxAge: 1000 * 60 * 60 * 24 * 365 });
-    res.json({ liked: true, likeCount: post.likeCount });
+    res.json({ liked: true, likeCount });
   } catch (e) { next(e); }
 });
 app.post('/api/posts/:slug/comments', writeLimiter, validate(commentSchema), async (req, res, next) => {
@@ -230,6 +264,7 @@ app.post('/api/newsletter/subscribe', writeLimiter, validate(subscribeSchema), a
     subscriber.unsubscribeTokenHash = hashToken(unsubscribeToken);
     subscriber.unsubscribeSecret = unsubscribeSecret;
     subscriber.consentAt = new Date();
+    subscriber.confirmExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
     await subscriber.save();
     const url = `${env.API_URL.replace(/\/+$/, '')}/api/newsletter/confirm?token=${encodeURIComponent(confirm.token)}`;
     const unsubscribeUrl = `${env.API_URL.replace(/\/+$/, '')}/api/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
@@ -244,7 +279,7 @@ app.post('/api/newsletter/subscribe', writeLimiter, validate(subscribeSchema), a
 app.get('/api/newsletter/confirm', async (req, res, next) => {
   try {
     if (typeof req.query.token !== 'string') return res.status(400).send('Invalid confirmation link.');
-    const subscriber = await Subscriber.findOne({ confirmTokenHash: hashToken(req.query.token), status: 'pending' });
+    const subscriber = await Subscriber.findOne({ confirmTokenHash: hashToken(req.query.token), status: 'pending', confirmExpiresAt: { $gt: new Date() } });
     if (!subscriber) return res.status(400).send('This confirmation link is invalid, expired, or already used.');
     res.type('html').send(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Confirm subscription</title><body><main><h1>Confirm your subscription</h1><p>Confirm that you want to receive new writing from Field Notes.</p><form method="post" action="/api/newsletter/confirm"><input type="hidden" name="token" value="${escapeHtml(req.query.token)}"><button type="submit">Confirm subscription</button></form></main></body></html>`);
   } catch (e) { next(e); }
@@ -252,11 +287,12 @@ app.get('/api/newsletter/confirm', async (req, res, next) => {
 app.post('/api/newsletter/confirm', async (req, res, next) => {
   try {
     if (typeof req.body.token !== 'string') return res.status(400).send('Invalid confirmation link.');
-    const subscriber = await Subscriber.findOne({ confirmTokenHash: hashToken(req.body.token), status: 'pending' }).select('+confirmTokenHash');
+    const subscriber = await Subscriber.findOne({ confirmTokenHash: hashToken(req.body.token), status: 'pending', confirmExpiresAt: { $gt: new Date() } }).select('+confirmTokenHash');
     if (!subscriber) return res.status(400).send('This confirmation link is invalid, expired, or already used.');
     subscriber.status = 'confirmed';
     subscriber.confirmedAt = new Date();
     subscriber.confirmTokenHash = undefined;
+    subscriber.confirmExpiresAt = undefined;
     await subscriber.save();
     res.type('html').send('<!doctype html><html lang="en"><meta charset="utf-8"><title>Subscription confirmed</title><body><main><h1>Subscription confirmed</h1><p>Thanks for joining. You can close this page and return to the blog.</p></main></body></html>');
   } catch (e) { next(e); }
@@ -330,6 +366,7 @@ app.post('/api/admin/posts', requireAdmin, writeLimiter, validate(postSchema), a
     const data = { ...req.body, content: sanitizeContent(req.body.content), createdBy: req.session.user.id };
     if (data.status === 'published') data.publishedAt = new Date();
     const post = await Post.create(data);
+    await PostRevision.create({ post: post._id, snapshot: post.toObject(), createdBy: req.session.user.id });
     await audit(req, 'post.create', 'Post', post._id);
     let newsletterQueued = null;
     if (post.status === 'published') {
@@ -348,6 +385,7 @@ app.put('/api/admin/posts/:id', requireAdmin, writeLimiter, validate(postSchema)
     const newlyPublished = !wasPublished && existing.status === 'published';
     if (newlyPublished || (existing.status === 'published' && !existing.publishedAt)) existing.publishedAt = new Date();
     await existing.save();
+    await PostRevision.create({ post: existing._id, snapshot: existing.toObject(), createdBy: req.session.user.id });
     await audit(req, 'post.update', 'Post', existing._id);
     let newsletterQueued = null;
     if (newlyPublished) {
@@ -356,6 +394,12 @@ app.put('/api/admin/posts/:id', requireAdmin, writeLimiter, validate(postSchema)
     }
     res.json({ post: existing, newlyPublished, newsletterQueued });
   } catch (e) { if (e.code === 11000) return res.status(409).json({ error: 'That slug is already in use.' }); next(e); }
+});
+app.get('/api/admin/posts/:id/revisions', requireAdmin, async (req, res, next) => {
+  try {
+    const items = await PostRevision.find({ post: req.params.id }).sort({ createdAt: -1 }).limit(50).select('createdAt createdBy snapshot').lean();
+    res.json({ items });
+  } catch (e) { next(e); }
 });
 app.delete('/api/admin/posts/:id', requireAdmin, async (req, res, next) => {
   try {
@@ -462,6 +506,7 @@ app.get('/api/admin/campaigns', requireAdmin, async (req, res, next) => {
 
 app.post('/api/admin/campaigns/:id/retry', requireAdmin, writeLimiter, async (req, res, next) => {
   try {
+    if (!env.NEWSLETTER_QUEUE_ENABLED) return res.status(503).json({ error: 'Newsletter delivery is disabled until Redis is enabled.' });
     const campaign = await NewsletterCampaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found.' });
     if (campaign.status !== 'failed') return res.status(409).json({ error: 'Only failed campaigns can be retried.' });

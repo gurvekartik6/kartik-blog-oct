@@ -56,6 +56,25 @@ body {
     background 0.2s ease,
     color 0.2s ease;
 }
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin: 36px 0;
+}
+.assistant-box,
+.related-posts {
+  margin-top: 48px;
+}
+.assistant-box form {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+.assistant-box input {
+  flex: 1;
+}
 body,
 button,
 input,
@@ -216,7 +235,7 @@ p {
   align-items: center;
   gap: clamp(48px, 7vw, 100px);
   min-height: 650px;
-  padding-block: 100px 112px;
+  padding-block: 48px 112px;
 }
 .hero-copy {
   min-width: 0;
@@ -1205,6 +1224,7 @@ p {
   background: var(--bg);
 }
 .admin-topbar .eyebrow {
+  margin-top: 3px;
   font-size: 9px;
 }
 .admin-top-actions {
@@ -1774,6 +1794,7 @@ p {
   gap: 18px;
 }
 .page-edit-panel .eyebrow {
+  margin-top: 5;
   margin-bottom: 0;
 }
 .page-edit-panel label small,
@@ -2218,7 +2239,7 @@ p {
     grid-template-columns: minmax(0, 1fr) minmax(290px, 0.9fr);
     gap: 34px;
     min-height: 590px;
-    padding-block: 82px 92px;
+    padding-block: 48px 92px;
   }
   .hero h1 {
     font-size: clamp(39px, 5.5vw, 54px);
@@ -2283,7 +2304,7 @@ p {
     grid-template-columns: 1fr;
     gap: 35px;
     min-height: auto;
-    padding-block: 72px 76px;
+    padding-block: 40px 50px;
   }
   .hero h1 {
     margin-block: 22px 20px;

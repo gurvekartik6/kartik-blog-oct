@@ -55,6 +55,7 @@ const subscriberSchema = new Schema({
   unsubscribeSecret: { type: String, select: false },
   consentAt: Date,
   confirmedAt: Date,
+  confirmExpiresAt: Date,
   unsubscribedAt: Date,
   source: { type: String, default: 'website' }
 }, options);
@@ -136,3 +137,10 @@ const newsletterDeliverySchema = new Schema({
 }, options);
 newsletterDeliverySchema.index({ campaign: 1, subscriber: 1 }, { unique: true });
 export const NewsletterDelivery = models.NewsletterDelivery || model('NewsletterDelivery', newsletterDeliverySchema);
+
+const postRevisionSchema = new Schema({
+  post: { type: Schema.Types.ObjectId, ref: 'Post', required: true, index: true },
+  snapshot: { type: Schema.Types.Mixed, required: true },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User' }
+}, options);
+export const PostRevision = models.PostRevision || model('PostRevision', postRevisionSchema);

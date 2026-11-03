@@ -475,26 +475,36 @@ function Home ({ posts, settings }) {
 
 function Blog ({ posts }) {
   const [query, setQuery] = useState('')
-  const [page, setPage] = useState(null)
+  const [results, setResults] = useState(posts)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [pageInfo, setPageInfo] = useState(null)
   useEffect(() => {
     apiRequest('/api/pages/blog')
-      .then(r => setPage(r.page))
+      .then(r => setPageInfo(r.page))
       .catch(() => {})
   }, [])
-  const content = page?.content || {}
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      apiRequest(`/api/posts?limit=12&page=${page}&q=${encodeURIComponent(query)}`)
+        .then(r => {
+          setResults(r.items || [])
+          setHasMore(Boolean(r.hasMore))
+        })
+        .catch(() => setResults([]))
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [query, page])
+  const content = pageInfo?.content || {}
   usePageMeta(
-    page?.seo?.title || page?.title || 'Writing',
-    page?.seo?.description ||
+    pageInfo?.seo?.title || pageInfo?.title || 'Writing',
+    pageInfo?.seo?.description ||
       content.intro ||
       'Technical articles on computer science, software engineering, systems, and AI.',
     '/blog',
-    page?.seo?.canonicalUrl
+    pageInfo?.seo?.canonicalUrl
   )
-  const filtered = posts.filter(p =>
-    `${p.title} ${p.excerpt} ${p.category} ${(p.tags || []).join(' ')}`
-      .toLowerCase()
-      .includes(query.toLowerCase())
-  )
+  const filtered = results
   return (
     <main className='container page-main'>
       <div className='page-intro'>
@@ -538,6 +548,11 @@ function Blog ({ posts }) {
           {content.emptyText || 'No stories match that search yet.'}
         </div>
       )}
+      <div className='pagination'>
+        <button className='button button-quiet' disabled={page === 1} onClick={() => setPage(current => current - 1)}>Previous</button>
+        <span>Page {page}</span>
+        <button className='button button-quiet' disabled={!hasMore} onClick={() => setPage(current => current + 1)}>Next</button>
+      </div>
     </main>
   )
 }
@@ -551,6 +566,10 @@ function Article ({ posts }) {
   const [liked, setLiked] = useState(false)
   const [likes, setLikes] = useState(0)
   const [comments, setComments] = useState([])
+  const [related, setRelated] = useState([])
+  const [assistantPrompt, setAssistantPrompt] = useState('')
+  const [assistantAnswer, setAssistantAnswer] = useState('')
+  const [assistantBusy, setAssistantBusy] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', body: '' })
   const [message, setMessage] = useState('')
   useEffect(() => {
@@ -563,6 +582,7 @@ function Article ({ posts }) {
         setPost(data.post)
         setLikes(data.post.likeCount || 0)
         setComments(data.comments || [])
+        setRelated(data.related || [])
         setLiked(Boolean(data.liked))
         setNotFound(false)
       })
@@ -580,6 +600,18 @@ function Article ({ posts }) {
       setLikes(data.likeCount)
     } catch (e) {
       setMessage(e.message)
+    }
+    async function askAssistant (event) {
+      event.preventDefault()
+      setAssistantBusy(true)
+      try {
+        const data = await apiRequest('/api/assistant', { method: 'POST', body: JSON.stringify({ prompt: assistantPrompt, postSlug: slug }) })
+        setAssistantAnswer(data.answer)
+      } catch (error) {
+        setAssistantAnswer(error.message)
+      } finally {
+        setAssistantBusy(false)
+      }
     }
   }
   async function submitComment (e) {
@@ -654,6 +686,15 @@ function Article ({ posts }) {
           <p>This story is ready for its rich-text content.</p>
         )}
       </article>
+      <section className='assistant-box'>
+        <span className='eyebrow'>ASK ABOUT THIS STORY</span>
+        <form onSubmit={askAssistant}>
+          <input required maxLength='4000' value={assistantPrompt} onChange={event => setAssistantPrompt(event.target.value)} placeholder='Ask a question about the article' />
+          <button className='button button-dark' disabled={assistantBusy}>{assistantBusy ? 'Thinking…' : 'Ask Gemini'}</button>
+        </form>
+        {assistantAnswer && <p className='form-status'>{assistantAnswer}</p>}
+      </section>
+      {related.length > 0 && <section className='related-posts'><span className='eyebrow'>KEEP READING</span><div className='post-grid'>{related.map((item, index) => <PostCard key={item._id} post={item} index={index} />)}</div></section>}
       <div className='article-engagement'>
         <button
           className={liked ? 'like-button liked' : 'like-button'}

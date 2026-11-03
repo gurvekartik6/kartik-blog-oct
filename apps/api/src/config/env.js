@@ -19,6 +19,8 @@ const schema = z.object({
   ADMIN_PASSWORD: z.string().min(12),
   RESEND_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().optional().default(''),
+  GEMINI_API_KEY: z.string().optional().default(''),
+  GEMINI_MODEL: z.string().min(1).default('gemini-2.5-flash'),
   CORS_ORIGINS: z.string().optional().default('http://localhost:5173')
 });
 
@@ -46,4 +48,3 @@ if (isProduction) {
     throw new Error('Production requires RESEND_API_KEY and EMAIL_FROM on a verified, non-placeholder sender domain.');
   }
 }
-
