@@ -549,7 +549,9 @@ app.use((req, res) => res.status(404).json({ error: 'Route not found.' }));
 app.use((error, req, res, next) => {
   console.error(error);
   if (res.headersSent) return next(error);
-  const status = Number.isInteger(error.status) && error.status >= 400 && error.status < 500 ? error.status : error.name === 'ValidationError' || error.name === 'MulterError' || error.name === 'CastError' || error.name === 'BSONError' ? 400 : 500;
+  const status = Number.isInteger(error.status) && (error.status >= 400 && error.status < 500 || error.status === 503)
+    ? error.status
+    : error.name === 'ValidationError' || error.name === 'MulterError' || error.name === 'CastError' || error.name === 'BSONError' ? 400 : 500;
   res.status(status).json({ error: status === 500 ? 'An unexpected server error occurred.' : error.message });
 });
 

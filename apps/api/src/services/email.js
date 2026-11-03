@@ -8,7 +8,13 @@ export async function sendEmail({ to, subject, html, text }) {
   }
   const client = new Resend(env.RESEND_API_KEY);
   const { data, error } = await client.emails.send({ from: env.EMAIL_FROM, to, subject, html, text });
-  if (error) throw new Error(error.message || 'Email provider error');
+  if (error) {
+    console.error('Email provider error:', error.message || 'Unknown provider error');
+    const providerError = new Error('Email delivery is temporarily unavailable. Please try again later.');
+    providerError.status = 503;
+    providerError.code = 'EMAIL_PROVIDER_UNAVAILABLE';
+    throw providerError;
+  }
   return data;
 }
 
