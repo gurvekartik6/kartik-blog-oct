@@ -47,4 +47,7 @@ if (isProduction) {
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM || /example\.com/i.test(env.EMAIL_FROM)) {
     throw new Error('Production requires RESEND_API_KEY and EMAIL_FROM on a verified, non-placeholder sender domain.');
   }
+  if (/@(?:gmail|googlemail|yahoo|outlook|hotmail)\.[^>\s]+/i.test(env.EMAIL_FROM)) {
+    throw new Error('Production EMAIL_FROM must use a domain verified in Resend, not a consumer mailbox domain.');
+  }
 }
