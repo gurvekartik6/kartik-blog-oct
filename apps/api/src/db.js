@@ -4,8 +4,10 @@ import mongoose from 'mongoose';
 import { env } from './config/env.js';
 
 // Development workaround for the DNS issue on this machine.
-// Configure DNS before any call to mongoose.connect().
-dns.setServers(['8.8.8.8']);
+// Render and other production hosts must use their configured DNS resolvers.
+if (env.NODE_ENV !== 'production') {
+  dns.setServers(['8.8.8.8']);
+}
 
 mongoose.set('strictQuery', true);
 
