@@ -8,7 +8,7 @@ export const postSchema = z.object({
   content: z.string().max(900_000).optional().default(''),
   coverImage: z.string().max(2000).optional().default(''),
   coverAlt: z.string().max(250).optional().default(''),
-  category: z.string().max(80).optional().default('Field notes'),
+  category: z.string().max(80).optional().default('Developer Blog'),
   tags: z.array(z.string().max(40)).max(30).optional().default([]),
   status: z.enum(['draft', 'published', 'archived']).optional().default('draft'),
   scheduledAt: z.coerce.date().nullable().optional(),

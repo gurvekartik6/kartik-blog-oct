@@ -27,7 +27,7 @@ import DOMPurify from 'dompurify'
 
 function usePageMeta (title, description, canonicalPath, canonicalUrl) {
   useEffect(() => {
-    if (title) document.title = `${title} · Field Notes`
+    if (title) document.title = `${title} · Developer Blog`
     if (description) {
       let meta = document.querySelector('meta[name="description"]')
       if (!meta) {
@@ -211,7 +211,7 @@ function Footer ({ settings }) {
       </div>
       <div className='footer-bottom'>
         <span>
-          © {new Date().getFullYear()} {settings.siteName || 'Field Notes'}
+          © {new Date().getFullYear()} {settings.siteName || 'Developer Blog'}
         </span>
         <span>
           {settings.footerText || 'Made slowly, learned along the way.'}
@@ -638,7 +638,7 @@ function Article ({ posts }) {
       </Link>
       <div className='article-heading'>
         <span className='eyebrow'>
-          {post.category || 'FIELD NOTES'} · {post.readTime || 5} MIN READ
+          {post.category || 'DEVELOPER BLOG'} · {post.readTime || 5} MIN READ
         </span>
         <h1>{post.title}</h1>
         <p>{post.excerpt}</p>
@@ -907,7 +907,7 @@ function Contact ({ settings }) {
     page?.seo?.title || page?.title || 'Contact',
     page?.seo?.description ||
       content.description ||
-      'Get in touch through the Field Notes contact form.',
+      'Get in touch through the Developer Blog contact form.',
     '/contact',
     page?.seo?.canonicalUrl
   )

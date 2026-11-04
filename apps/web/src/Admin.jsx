@@ -100,12 +100,12 @@ function Posts({ notify, editPost }) {
 }
 
 function PostEditor({ post, close, notify, refresh }) {
-  const initial = post || { title:'',slug:'',excerpt:'',content:'<p></p>',coverImage:'',coverAlt:'',category:'Field notes',tags:[],status:'draft',scheduledAt:'',readTime:5,seo:{title:'',description:''} };
+  const initial = post || { title:'',slug:'',excerpt:'',content:'<p></p>',coverImage:'',coverAlt:'',category:'Developer Blog',tags:[],status:'draft',scheduledAt:'',readTime:5,seo:{title:'',description:''} };
   const [form,setForm] = useState(initial);
   const [saving,setSaving] = useState(false);
   const [tab,setTab] = useState('content');
   const update=(key,value)=>setForm(f=>({...f,[key]:value}));
-  useEffect(()=>{setForm(post || { title:'',slug:'',excerpt:'',content:'<p></p>',coverImage:'',coverAlt:'',category:'Field notes',tags:[],status:'draft',readTime:5,seo:{title:'',description:''} })},[post]);
+  useEffect(()=>{setForm(post || { title:'',slug:'',excerpt:'',content:'<p></p>',coverImage:'',coverAlt:'',category:'Developer Blog',tags:[],status:'draft',readTime:5,seo:{title:'',description:''} })},[post]);
   function makeSlug(value){return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
   async function save(status=form.status) {
     if(!form.title.trim()) return notify('A title is required.','error');
@@ -223,7 +223,7 @@ export default function Admin() {
   if(!user)return <Login onLogin={login}/>;
   return <div className="admin-shell">
     <aside className={`admin-sidebar ${mobileNav?'mobile-open':''}`}><Link to="/" className="admin-brand"><span className="brand-mark">fn.</span><span>Developer Blog<small>ADMIN STUDIO</small></span></Link><div className="admin-side-label">WORKSPACE</div><nav>{navItems.map(([key,label,Icon])=><button key={key} className={section===key?'active':''} onClick={()=>go(key)}><Icon size={17}/><span>{label}</span>{key==='comments'&&dashboard?.stats?.pendingComments>0&&<i>{dashboard.stats.pendingComments}</i>}</button>)}</nav><div className="admin-sidebar-bottom"><div className="admin-user"><div className="admin-avatar">{user.email?.slice(0,1).toUpperCase()}</div><span><b>{user.email}</b><small>Administrator</small></span></div><button onClick={logout}><LogOut size={16}/> Sign out</button></div></aside>
-    <div className="admin-main"><header className="admin-topbar"><button className="admin-mobile-toggle" onClick={()=>setMobileNav(!mobileNav)}><ChevronDown size={18}/></button><div><span className="eyebrow">FIELD NOTES / {title.toUpperCase()}</span></div><div className="admin-top-actions"><a href="/" target="_blank" rel="noreferrer"><ExternalLink size={15}/> View site</a><button className="icon-button" onClick={toggleTheme} aria-label="Toggle theme">{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button></div></header><Notice notice={notice} clear={()=>setNotice(null)}/>
+    <div className="admin-main"><header className="admin-topbar"><button className="admin-mobile-toggle" onClick={()=>setMobileNav(!mobileNav)}><ChevronDown size={18}/></button><div><span className="eyebrow">DEVELOPER BLOG / {title.toUpperCase()}</span></div><div className="admin-top-actions"><a href="/" target="_blank" rel="noreferrer"><ExternalLink size={15}/> View site</a><button className="icon-button" onClick={toggleTheme} aria-label="Toggle theme">{theme==='dark'?<Sun size={17}/>:<Moon size={17}/>}</button></div></header><Notice notice={notice} clear={()=>setNotice(null)}/>
       {section==='overview'&&<Overview data={dashboard} go={go}/>}
       {section==='posts'&&<Posts key={refreshKey} notify={notify} editPost={setEditingPost}/>}
       {section==='comments'&&<Comments notify={notify}/>}

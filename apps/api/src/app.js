@@ -130,7 +130,7 @@ function publicPost(post) {
 async function seedDefaults() {
   if (!(await SiteSettings.exists({ key: 'global' }))) {
     await SiteSettings.create({ key: 'global', settings: {
-      siteName: 'Field Notes', tagline: 'Notes from the learning curve.',
+      siteName: 'Developer Blog', tagline: 'Notes from the learning curve.',
       homeTitle: 'A work in progress,\\nand proud of it.',
       homeSubtitle: 'Thoughts on engineering, technology, work, setbacks, and the lessons that never fit neatly into a syllabus.',
       navigation: [{ label: 'Home', href: '/' }, { label: 'About', href: '/about' }, { label: 'Writing', href: '/blog' }, { label: 'Journey', href: '/journey' }, { label: 'Contact', href: '/contact' }],
@@ -251,7 +251,7 @@ app.post('/api/assistant', writeLimiter, validate(assistantSchema), async (req, 
     const postContext = posts.map(post => [
       `Title: ${post.title}`,
       `Link: ${publicUrl}/blog/${post.slug}`,
-      `Category: ${post.category || 'Field notes'}`,
+      `Category: ${post.category || 'Developer Blog'}`,
       `Tags: ${(post.tags || []).join(', ') || 'none'}`,
       `Excerpt: ${post.excerpt || ''}`,
       `Published: ${post.publishedAt ? new Date(post.publishedAt).toISOString() : 'unknown'}`,
@@ -371,7 +371,7 @@ app.get('/api/newsletter/confirm', async (req, res, next) => {
     if (typeof req.query.token !== 'string') return res.status(400).send('Invalid confirmation link.');
     const subscriber = await Subscriber.findOne({ confirmTokenHash: hashToken(req.query.token), status: 'pending', confirmExpiresAt: { $gt: new Date() } });
     if (!subscriber) return res.status(400).send('This confirmation link is invalid, expired, or already used.');
-    res.type('html').send(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Confirm subscription</title><body><main><h1>Confirm your subscription</h1><p>Confirm that you want to receive new writing from Field Notes.</p><form method="post" action="/api/newsletter/confirm"><input type="hidden" name="token" value="${escapeHtml(req.query.token)}"><button type="submit">Confirm subscription</button></form></main></body></html>`);
+    res.type('html').send(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Confirm subscription</title><body><main><h1>Confirm your subscription</h1><p>Confirm that you want to receive new writing from Developer Blog.</p><form method="post" action="/api/newsletter/confirm"><input type="hidden" name="token" value="${escapeHtml(req.query.token)}"><button type="submit">Confirm subscription</button></form></main></body></html>`);
   } catch (e) { next(e); }
 });
 app.post('/api/newsletter/confirm', async (req, res, next) => {
@@ -392,7 +392,7 @@ app.get('/api/newsletter/unsubscribe', async (req, res, next) => {
     if (typeof req.query.token !== 'string') return res.status(400).send('Invalid unsubscribe link.');
     const subscriber = await Subscriber.findOne({ unsubscribeTokenHash: hashToken(req.query.token), status: { $in: ['confirmed','pending'] } });
     if (!subscriber) return res.status(400).send('This unsubscribe link is invalid.');
-    res.type('html').send(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Unsubscribe</title><body><main><h1>Unsubscribe from Field Notes</h1><p>Confirm that you no longer want to receive newsletter emails.</p><form method="post" action="/api/newsletter/unsubscribe"><input type="hidden" name="token" value="${escapeHtml(req.query.token)}"><button type="submit">Unsubscribe</button></form></main></body></html>`);
+    res.type('html').send(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Unsubscribe</title><body><main><h1>Unsubscribe from Developer Blog</h1><p>Confirm that you no longer want to receive newsletter emails.</p><form method="post" action="/api/newsletter/unsubscribe"><input type="hidden" name="token" value="${escapeHtml(req.query.token)}"><button type="submit">Unsubscribe</button></form></main></body></html>`);
   } catch (e) { next(e); }
 });
 app.post('/api/newsletter/unsubscribe', async (req, res, next) => {

@@ -18,7 +18,7 @@ const postSchema = new Schema({
   content: { type: Schema.Types.Mixed, default: '' },
   coverImage: { type: String, default: '' },
   coverAlt: { type: String, default: '', maxlength: 250 },
-  category: { type: String, default: 'Field notes' },
+  category: { type: String, default: 'Developer Blog' },
   tags: [{ type: String, trim: true, lowercase: true }],
   status: { type: String, enum: ['draft', 'published', 'archived'], default: 'draft', index: true },
   publishedAt: Date,
