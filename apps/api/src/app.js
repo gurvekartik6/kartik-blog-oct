@@ -30,7 +30,10 @@ allowedOrigins.add(new URL(env.API_URL).origin);
 app.use(cors({ origin: [...allowedOrigins], credentials: true }));
 // SameSite cookies are a useful baseline; reject cross-origin browser mutations as an additional CSRF defense.
 app.use((req, res, next) => {
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.headers.origin && !allowedOrigins.has(req.headers.origin)) {
+  const requestOrigin = req.headers.origin;
+  const hostOrigin = `${req.protocol}://${req.get('host')}`;
+  const isSameOrigin = requestOrigin === hostOrigin;
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && requestOrigin && !isSameOrigin && !allowedOrigins.has(requestOrigin)) {
     return res.status(403).json({ error: 'Cross-origin request blocked.' });
   }
   next();
