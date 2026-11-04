@@ -24,13 +24,23 @@ export const app = express();
 app.disable('x-powered-by');
 if (isProduction) app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-const allowedOrigins = new Set(env.CORS_ORIGINS.split(',').map(x => x.trim()).filter(Boolean));
+const normalizeOrigin = origin => {
+  try { return new URL(origin).origin; } catch { return ''; }
+};
+const allowedOrigins = new Set(
+  env.CORS_ORIGINS.split(',').map(normalizeOrigin).filter(Boolean)
+);
 allowedOrigins.add(new URL(env.CLIENT_URL).origin);
 allowedOrigins.add(new URL(env.API_URL).origin);
+const clientOrigin = new URL(env.CLIENT_URL);
+const alternateClientHost = clientOrigin.hostname.startsWith('www.')
+  ? clientOrigin.hostname.slice(4)
+  : `www.${clientOrigin.hostname}`;
+allowedOrigins.add(`${clientOrigin.protocol}//${alternateClientHost}`);
 app.use(cors({ origin: [...allowedOrigins], credentials: true }));
 // SameSite cookies are a useful baseline; reject cross-origin browser mutations as an additional CSRF defense.
 app.use((req, res, next) => {
-  const requestOrigin = req.headers.origin;
+  const requestOrigin = normalizeOrigin(req.headers.origin || '');
   const hostOrigin = `${req.protocol}://${req.get('host')}`;
   const isSameOrigin = requestOrigin === hostOrigin;
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && requestOrigin && !isSameOrigin && !allowedOrigins.has(requestOrigin)) {
