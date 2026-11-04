@@ -231,14 +231,37 @@ app.post('/api/assistant', writeLimiter, validate(assistantSchema), async (req, 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: `${context}\n\nUser question: ${req.body.prompt}` }] }] })
+      body: JSON.stringify({ contents: [{ parts: [{ text: `${context}\n\nUser question: ${req.body.prompt}` }] }] }),
+      signal: AbortSignal.timeout(30000)
     });
-    const data = await response.json();
-    if (!response.ok) return res.status(502).json({ error: 'The AI assistant could not respond.' });
+    const responseBody = await response.text();
+    let data;
+    try {
+      data = JSON.parse(responseBody);
+    } catch {
+      data = null;
+    }
+    if (!response.ok) {
+      console.error('Gemini API request failed:', {
+        model: env.GEMINI_MODEL,
+        status: response.status,
+        body: responseBody.slice(0, 1000)
+      });
+      return res.status(response.status === 429 ? 503 : 502).json({ error: 'The AI assistant could not respond.' });
+    }
+    if (!data) {
+      console.error('Gemini API returned a non-JSON success response:', { model: env.GEMINI_MODEL });
+      return res.status(502).json({ error: 'The AI assistant returned an invalid response.' });
+    }
     const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
     if (!text) return res.status(502).json({ error: 'The AI assistant returned an empty response.' });
     res.json({ answer: text, model: env.GEMINI_MODEL });
-  } catch (e) { next(e); }
+  } catch (e) {
+    if (e.name === 'TimeoutError' || e.name === 'AbortError') {
+      return res.status(504).json({ error: 'The AI assistant took too long to respond.' });
+    }
+    next(e);
+  }
 });
 app.post('/api/posts/:slug/like', writeLimiter, async (req, res, next) => {
   try {

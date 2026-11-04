@@ -25,7 +25,7 @@ const schema = z.object({
   SMTP_PASS: z.string().optional().default(''),
   NEWSLETTER_QUEUE_ENABLED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   GEMINI_API_KEY: z.string().optional().default(''),
-  GEMINI_MODEL: z.string().min(1).default('gemini-2.5-flash'),
+  GEMINI_MODEL: z.string().min(1).default('gemini-3.5-flash-lite'),
   CORS_ORIGINS: z.string().optional().default('http://localhost:5173')
 });
 
