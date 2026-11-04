@@ -179,13 +179,13 @@ async function processNewsletterJob(job) {
 
         html: `
           <main style="font:16px/1.6 system-ui;max-width:620px;margin:auto">
-            <p>FIELD NOTES · NEW STORY</p>
+            <p>KARTIK GURVE · NEW STORY</p>
             <h1>${safeTitle}</h1>
             <p>${safeExcerpt}</p>
             <p><a href="${articleUrl}">Read the story</a></p>
             <hr />
             <p style="font-size:12px;color:#777">
-              You are receiving this because you subscribed to Field Notes.
+              You are receiving this because you subscribed to Kartik Gurve.
               <a href="${unsubscribeUrl}">Unsubscribe</a>.
             </p>
           </main>

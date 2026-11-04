@@ -274,9 +274,9 @@ app.post('/api/newsletter/subscribe', writeLimiter, validate(subscribeSchema), a
     const url = `${env.API_URL.replace(/\/+$/, '')}/api/newsletter/confirm?token=${encodeURIComponent(confirm.token)}`;
     const unsubscribeUrl = `${env.API_URL.replace(/\/+$/, '')}/api/newsletter/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
     await sendEmail({
-      to: email, subject: 'Confirm your Field Notes subscription',
-      html: `<p>Please confirm that you want to receive new writing from Field Notes.</p><p><a href="${url}">Confirm subscription</a></p><p>If you did not request this, you can ignore this email.</p><p><a href="${unsubscribeUrl}">Unsubscribe</a></p>`,
-      text: `Confirm your subscription: ${url}\nUnsubscribe: ${unsubscribeUrl}`
+      to: email, subject: 'Confirm your Kartik Gurve subscription',
+      html: `<p>Please confirm that you want to receive new writing from Kartik Gurve.</p><p><a href="${url}">Confirm subscription</a></p><p>If you did not request this, you can ignore this email.</p><p><a href="${unsubscribeUrl}">Unsubscribe</a></p>`,
+      text: `Confirm your Kartik Gurve subscription: ${url}\nUnsubscribe: ${unsubscribeUrl}`
     });
     res.status(202).json({ message: 'Check your inbox to confirm your subscription.' });
   } catch (e) { next(e); }
