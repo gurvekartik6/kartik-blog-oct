@@ -49,66 +49,33 @@ function usePageMeta (title, description, canonicalPath, canonicalUrl) {
   }, [title, description, canonicalPath, canonicalUrl])
 }
 
-const fallbackPosts = [
-  {
-    _id: 'story-1',
-    title: 'How to reason about time and space complexity',
-    slug: 'reasoning-about-complexity',
-    category: 'Algorithms',
-    excerpt:
-      'A practical way to analyze growth rates, compare approaches, and explain the trade-offs behind an implementation.',
-    readTime: 8,
-    publishedAt: '2026-10-12',
-    coverImage: ''
-  },
-  {
-    _id: 'story-2',
-    title: 'What actually happens when an API request arrives?',
-    slug: 'inside-an-api-request',
-    category: 'Backend engineering',
-    excerpt:
-      'Follow a request through routing, validation, business logic, persistence, and the response sent back to a client.',
-    readTime: 10,
-    publishedAt: '2026-09-28',
-    coverImage: ''
-  },
-  {
-    _id: 'story-3',
-    title: 'Connecting neural networks with symbolic reasoning',
-    slug: 'neural-symbolic-reasoning',
-    category: 'AI / ML',
-    excerpt:
-      'A concise introduction to combining learned representations with explicit rules, constraints, and structured knowledge.',
-    readTime: 12,
-    publishedAt: '2026-09-14',
-    coverImage: ''
-  }
-]
-
 function useSiteData () {
-  const [posts, setPosts] = useState(fallbackPosts)
-  const [settings, setSettings] = useState({
-    siteName: 'Field Notes',
-    tagline: 'SOFTWARE · SYSTEMS · RESEARCH',
-    homeTitle: 'Notes on code, systems, and the ideas behind them.',
-    homeSubtitle:
-      'Technical write-ups, implementation notes, and research explorations from a computer science engineer.'
-  })
+  const [posts, setPosts] = useState(null)
+  const [settings, setSettings] = useState(null)
+  const [error, setError] = useState('')
   useEffect(() => {
-    apiRequest('/api/posts?limit=6')
-      .then(data => setPosts(data.items || []))
-      .catch(() => {})
-    apiRequest('/api/site')
-      .then(data => setSettings(current => ({ ...current, ...data.settings })))
-      .catch(() => {})
+    Promise.all([apiRequest('/api/posts?limit=6'), apiRequest('/api/site')])
+      .then(([postsData, settingsData]) => {
+        setPosts(postsData.items || [])
+        setSettings(settingsData.settings || {})
+      })
+      .catch(error => setError(error.message))
   }, [])
   useEffect(() => {
-    const accent = settings.theme?.accent
+    const accent = settings?.theme?.accent
     if (typeof accent === 'string' && /^#[0-9a-f]{6}$/i.test(accent))
       document.documentElement.style.setProperty('--accent', accent)
     else document.documentElement.style.removeProperty('--accent')
-  }, [settings.theme?.accent])
-  return { posts, settings }
+  }, [settings?.theme?.accent])
+  return { posts, settings, error }
+}
+
+function PublicDataStatus ({ error }) {
+  return (
+    <main className='container page-main'>
+      <p>{error ? `Unable to load website content: ${error}` : 'Loading website content…'}</p>
+    </main>
+  )
 }
 
 function Header ({ settings }) {
@@ -479,10 +446,11 @@ function Blog ({ posts }) {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
   const [pageInfo, setPageInfo] = useState(null)
+  const [pageError, setPageError] = useState('')
   useEffect(() => {
     apiRequest('/api/pages/blog')
       .then(r => setPageInfo(r.page))
-      .catch(() => {})
+      .catch(error => setPageError(error.message))
   }, [])
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -504,6 +472,8 @@ function Blog ({ posts }) {
     '/blog',
     pageInfo?.seo?.canonicalUrl
   )
+  if (pageError) return <PublicDataStatus error={pageError} />
+  if (!pageInfo) return <PublicDataStatus />
   const filtered = results
   return (
     <main className='container page-main'>
@@ -758,10 +728,11 @@ function Article ({ posts }) {
 
 function About () {
   const [page, setPage] = useState(null)
+  const [pageError, setPageError] = useState('')
   useEffect(() => {
     apiRequest('/api/pages/about')
       .then(r => setPage(r.page))
-      .catch(() => {})
+      .catch(error => setPageError(error.message))
   }, [])
   const content = page?.content || {}
   usePageMeta(
@@ -772,6 +743,8 @@ function About () {
     '/about',
     page?.seo?.canonicalUrl
   )
+  if (pageError) return <PublicDataStatus error={pageError} />
+  if (!page) return <PublicDataStatus />
   const body =
     typeof content.body === 'string'
       ? content.body
@@ -826,38 +799,12 @@ function About () {
 
 function Journey () {
   const [page, setPage] = useState(null)
+  const [pageError, setPageError] = useState('')
   useEffect(() => {
     apiRequest('/api/pages/journey')
       .then(r => setPage(r.page))
-      .catch(() => {})
+      .catch(error => setPageError(error.message))
   }, [])
-  const defaults = [
-    [
-      '01',
-      'Diploma',
-      'The first stretch of learning to solve practical problems, work through uncertainty, and build a foundation.'
-    ],
-    [
-      '02',
-      'Engineering at SGGS Nanded',
-      'Connecting theory with systems, experiments, and the wider world of instrumentation engineering.'
-    ],
-    [
-      '03',
-      'Flyrank AI · Machine Learning Intern',
-      'Learning how machine-learning ideas move from concepts into applied work.'
-    ],
-    [
-      '04',
-      'Mountreach Solutions · Android Intern',
-      'Exploring application development and the details behind useful mobile experiences.'
-    ],
-    [
-      '05',
-      'Sai Ambrosia · Computer Instructor',
-      'Helping others learn technology and discovering how much teaching sharpens understanding.'
-    ]
-  ]
   usePageMeta(
     page?.seo?.title || page?.title || 'Journey',
     page?.seo?.description ||
@@ -866,6 +813,8 @@ function Journey () {
     '/journey',
     page?.seo?.canonicalUrl
   )
+  if (pageError) return <PublicDataStatus error={pageError} />
+  if (!page) return <PublicDataStatus />
   const stored = page?.content?.entries
   const steps =
     Array.isArray(stored) && stored.length
@@ -874,7 +823,7 @@ function Journey () {
           s.title || 'Experience',
           s.description || ''
         ])
-      : defaults
+      : []
   return (
     <main className='container page-main'>
       <div className='page-intro'>
@@ -911,6 +860,7 @@ function Journey () {
 
 function Contact ({ settings }) {
   const [page, setPage] = useState(null)
+  const [pageError, setPageError] = useState('')
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -921,7 +871,7 @@ function Contact ({ settings }) {
   useEffect(() => {
     apiRequest('/api/pages/contact')
       .then(r => setPage(r.page))
-      .catch(() => {})
+      .catch(error => setPageError(error.message))
   }, [])
   const content = page?.content || {}
   usePageMeta(
@@ -932,6 +882,8 @@ function Contact ({ settings }) {
     '/contact',
     page?.seo?.canonicalUrl
   )
+  if (pageError) return <PublicDataStatus error={pageError} />
+  if (!page) return <PublicDataStatus />
   async function submit (e) {
     e.preventDefault()
     try {
@@ -1017,9 +969,15 @@ function Contact ({ settings }) {
 }
 
 export default function App () {
-  const { posts, settings } = useSiteData()
+  const { posts, settings, error } = useSiteData()
   const location = useLocation()
   const isAdmin = location.pathname.startsWith('/admin')
+  if (!isAdmin && (!posts || !settings || error))
+    return (
+      <div className='app-shell'>
+        <PublicDataStatus error={error} />
+      </div>
+    )
   return (
     <div className={isAdmin ? 'app-shell admin-route' : 'app-shell'}>
       {!isAdmin && <Header settings={settings} />}
