@@ -11,8 +11,11 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  Bot,
   Heart,
   Menu,
+  Send,
+  Sparkles,
   Moon,
   Sun,
   X
@@ -538,7 +541,8 @@ function Article ({ posts }) {
   const [comments, setComments] = useState([])
   const [related, setRelated] = useState([])
   const [assistantPrompt, setAssistantPrompt] = useState('')
-  const [assistantAnswer, setAssistantAnswer] = useState('')
+  const [assistantMessages, setAssistantMessages] = useState([])
+  const [assistantPromptsUsed, setAssistantPromptsUsed] = useState(0)
   const [assistantBusy, setAssistantBusy] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', body: '' })
   const [message, setMessage] = useState('')
@@ -574,12 +578,18 @@ function Article ({ posts }) {
   }
   async function askAssistant (event) {
     event.preventDefault()
+    const prompt = assistantPrompt.trim()
+    if (!prompt || assistantBusy || assistantPromptsUsed >= 5) return
+    setAssistantMessages(current => [...current, { role: 'user', text: prompt }])
+    setAssistantPrompt('')
     setAssistantBusy(true)
     try {
-      const data = await apiRequest('/api/assistant', { method: 'POST', body: JSON.stringify({ prompt: assistantPrompt, postSlug: slug }) })
-      setAssistantAnswer(data.answer)
+      const data = await apiRequest('/api/assistant', { method: 'POST', body: JSON.stringify({ prompt, postSlug: slug }) })
+      setAssistantMessages(current => [...current, { role: 'assistant', text: data.answer }])
+      setAssistantPromptsUsed(data.promptsUsed)
     } catch (error) {
-      setAssistantAnswer(error.message)
+      setAssistantMessages(current => [...current, { role: 'assistant', text: error.message, error: true }])
+      if (error.message.includes('all 5 prompts')) setAssistantPromptsUsed(5)
     } finally {
       setAssistantBusy(false)
     }
@@ -657,12 +667,31 @@ function Article ({ posts }) {
         )}
       </article>
       <section className='assistant-box'>
-        <span className='eyebrow'>ASK ABOUT THIS STORY</span>
+        <div className='assistant-heading'>
+          <div className='assistant-avatar'><Bot size={19} /></div>
+          <div>
+            <span className='eyebrow'>MEET KIT'S</span>
+            <h2>Ask anything about the site</h2>
+          </div>
+          <span className='assistant-counter'>{assistantPromptsUsed}/5 prompts</span>
+        </div>
+        <p className='assistant-intro'>Kit knows the published writing, pages, links, and approved conversations.</p>
+        <div className='assistant-messages' aria-live='polite'>
+          {!assistantMessages.length && (
+            <div className='assistant-welcome'><Sparkles size={16} /> Hi, I’m Kit. Ask me about this story or anything else on the site.</div>
+          )}
+          {assistantMessages.map((message, index) => (
+            <div className={`assistant-message ${message.role}${message.error ? ' error' : ''}`} key={`${message.role}-${index}`}>
+              {message.text}
+            </div>
+          ))}
+          {assistantBusy && <div className='assistant-message assistant typing'><i /><i /><i /></div>}
+        </div>
         <form onSubmit={askAssistant}>
-          <input required maxLength='4000' value={assistantPrompt} onChange={event => setAssistantPrompt(event.target.value)} placeholder='Ask a question about the article' />
-          <button className='button button-dark' disabled={assistantBusy}>{assistantBusy ? 'Thinking…' : 'Ask Gemini'}</button>
+          <input required maxLength='4000' value={assistantPrompt} onChange={event => setAssistantPrompt(event.target.value)} placeholder={assistantPromptsUsed >= 5 ? 'This session has reached its limit' : 'Ask Kit a question…'} disabled={assistantBusy || assistantPromptsUsed >= 5} />
+          <button className='button button-dark assistant-send' disabled={assistantBusy || assistantPromptsUsed >= 5 || !assistantPrompt.trim()} aria-label='Send question'><Send size={16} /> <span>Send</span></button>
         </form>
-        {assistantAnswer && <p className='form-status'>{assistantAnswer}</p>}
+        {assistantPromptsUsed >= 5 && <p className='assistant-limit'>You’ve used all 5 prompts for this session. Your limit will reset when this session expires.</p>}
       </section>
       {related.length > 0 && <section className='related-posts'><span className='eyebrow'>KEEP READING</span><div className='post-grid'>{related.map((item, index) => <PostCard key={item._id} post={item} index={index} />)}</div></section>}
       <div className='article-engagement'>
