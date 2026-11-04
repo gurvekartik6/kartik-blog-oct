@@ -571,17 +571,17 @@ function Article ({ posts }) {
     } catch (e) {
       setMessage(e.message)
     }
-    async function askAssistant (event) {
-      event.preventDefault()
-      setAssistantBusy(true)
-      try {
-        const data = await apiRequest('/api/assistant', { method: 'POST', body: JSON.stringify({ prompt: assistantPrompt, postSlug: slug }) })
-        setAssistantAnswer(data.answer)
-      } catch (error) {
-        setAssistantAnswer(error.message)
-      } finally {
-        setAssistantBusy(false)
-      }
+  }
+  async function askAssistant (event) {
+    event.preventDefault()
+    setAssistantBusy(true)
+    try {
+      const data = await apiRequest('/api/assistant', { method: 'POST', body: JSON.stringify({ prompt: assistantPrompt, postSlug: slug }) })
+      setAssistantAnswer(data.answer)
+    } catch (error) {
+      setAssistantAnswer(error.message)
+    } finally {
+      setAssistantBusy(false)
     }
   }
   async function submitComment (e) {
